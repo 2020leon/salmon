@@ -42,14 +42,6 @@ class SafeMaildir(mailbox.Maildir):
         raise mailbox.ExternalClashError('Name clash prevented file creation: %s' % path)
 
 
-class QueueError(Exception):
-
-    def __init__(self, msg, data):
-        Exception.__init__(self, msg)
-        self._message = msg
-        self.data = data
-
-
 class Queue:
     """
     Provides a simplified API for dealing with 'queues' in Salmon.
@@ -126,8 +118,6 @@ class Queue:
             else:
                 try:
                     msg = self.get(key)
-                except QueueError as exc:
-                    raise exc
                 finally:
                     self.remove(key)
                 return key, msg
