@@ -367,7 +367,7 @@ class RoutingBase:
         Used by self to call a function and log exceptions rather than
         explode and crash.
         """
-        from salmon.server import SMTPError
+        from salmon.error import SMTPError
 
         try:
             func(message, **kwargs)

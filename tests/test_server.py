@@ -4,7 +4,7 @@ import socket
 
 import lmtpd
 
-from salmon import mail, queue, routing, server
+from salmon import mail, queue, routing, server, error
 
 from .setup_env import SalmonTestCase
 
@@ -69,7 +69,7 @@ class ServerTestCase(SalmonTestCase):
 
         with patch("salmon.server.routing.Router") as router_mock, \
                 patch("salmon.server.undeliverable_message"):
-            router_mock.deliver.side_effect = server.SMTPError(450, "Not found")
+            router_mock.deliver.side_effect = error.SMTPError(450, "Not found")
             response = receiver.process_message(msg.Peer, msg.From, msg.To, str(msg))
             self.assertEqual(response, "450 Not found")
 
@@ -117,7 +117,7 @@ class ServerTestCase(SalmonTestCase):
 
         with patch("salmon.server.routing.Router") as router_mock, \
                 patch("salmon.server.undeliverable_message"):
-            router_mock.deliver.side_effect = server.SMTPError(450, "Not found")
+            router_mock.deliver.side_effect = error.SMTPError(450, "Not found")
             response = receiver.process_message(msg.Peer, msg.From, msg.To, str(msg))
             self.assertEqual(response, "450 Not found")
 
@@ -145,7 +145,7 @@ class ServerTestCase(SalmonTestCase):
 
         with patch("salmon.server.routing.Router") as router_mock, \
                 patch("salmon.server.undeliverable_message"):
-            router_mock.deliver.side_effect = server.SMTPError(450, "Not found")
+            router_mock.deliver.side_effect = error.SMTPError(450, "Not found")
             response = receiver.process_message(msg)
             # queue doesn't actually support SMTPErrors
             assert response is None, response
@@ -339,17 +339,17 @@ class ServerTestCase(SalmonTestCase):
         receiver.close()
 
     def test_SMTPError(self):
-        err = server.SMTPError(550)
+        err = error.SMTPError(550)
         self.assertEqual(str(err), '550 Permanent Failure Mail Delivery Protocol Status')
 
-        err = server.SMTPError(400)
+        err = error.SMTPError(400)
         self.assertEqual(str(err), '400 Persistent Transient Failure Other or Undefined Status')
 
-        err = server.SMTPError(425)
+        err = error.SMTPError(425)
         self.assertEqual(str(err), '425 Persistent Transient Failure Mailbox Status')
 
-        err = server.SMTPError(999)
+        err = error.SMTPError(999)
         self.assertEqual(str(err), "999 ")
 
-        err = server.SMTPError(999, "Bogus Error Code")
+        err = error.SMTPError(999, "Bogus Error Code")
         self.assertEqual(str(err), "999 Bogus Error Code")
