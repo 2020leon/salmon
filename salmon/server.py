@@ -155,6 +155,20 @@ class SMTPChannel(smtpd.SMTPChannel):
             smtpd.SMTPChannel.smtp_RCPT(self, arg)
 
 
+def process_message(Peer, From, To, Data, **kwargs):
+    try:
+        logging.debug("Message received from Peer: %r, From: %r, to To %r.", Peer, From, To)
+        routing.Router.deliver(mail.MailRequest(Peer, From, To, Data))
+    except SMTPError as err:
+        # looks like they want to return an error, so send it out
+        # and yes, you should still use SMTPError in your handlers
+        return err
+    except Exception:
+        logging.exception("Exception while processing message from Peer: %r, From: %r, to To %r.",
+                            Peer, From, To)
+        undeliverable_message(Data, "Error in message %r:%r:%r, look in logs." % (Peer, From, To))
+
+
 class SMTPReceiver(smtpd.SMTPServer):
     """Receives emails and hands it to the Router for further processing."""
 
@@ -192,16 +206,9 @@ class SMTPReceiver(smtpd.SMTPServer):
         Called by smtpd.SMTPServer when there's a message received.
         """
 
-        try:
-            logging.debug("Message received from Peer: %r, From: %r, to To %r.", Peer, From, To)
-            routing.Router.deliver(mail.MailRequest(Peer, From, To, Data))
-        except SMTPError as err:
-            # looks like they want to return an error, so send it out
-            return str(err)
-        except Exception:
-            logging.exception("Exception while processing message from Peer: %r, From: %r, to To %r.",
-                              Peer, From, To)
-            undeliverable_message(Data, "Error in message %r:%r:%r, look in logs." % (Peer, From, To))
+        result = process_message(Peer, From, To, Data, **kwargs)
+        if result is not None:
+            return str(result)
 
     def close(self):
         """Doesn't do anything except log who called this, since nobody should.  Ever."""
@@ -244,17 +251,9 @@ class LMTPReceiver(lmtpd.LMTPServer):
         Called by lmtpd.LMTPServer when there's a message received.
         """
 
-        try:
-            logging.debug("Message received from Peer: %r, From: %r, to To %r.", Peer, From, To)
-            routing.Router.deliver(mail.MailRequest(Peer, From, To, Data))
-        except SMTPError as err:
-            # looks like they want to return an error, so send it out
-            # and yes, you should still use SMTPError in your handlers
-            return str(err)
-        except Exception:
-            logging.exception("Exception while processing message from Peer: %r, From: %r, to To %r.",
-                              Peer, From, To)
-            undeliverable_message(Data, "Error in message %r:%r:%r, look in logs." % (Peer, From, To))
+        result = process_message(Peer, From, To, Data, **kwargs)
+        if result is not None:
+            return str(result)
 
     def close(self):
         """Doesn't do anything except log who called this, since nobody should.  Ever."""
@@ -320,13 +319,7 @@ class QueueReceiver:
         quirks.
         """
 
-        try:
-            logging.debug("Message received from Peer: %r, From: %r, to To %r.", msg.Peer, msg.From, msg.To)
-            routing.Router.deliver(msg)
-        except SMTPError as err:
+        result = process_message(msg.Peer, msg.From, msg.To, msg.Data)
+        if result is not None:
             logging.exception("Raising SMTPError when running in a QueueReceiver is unsupported.")
-            undeliverable_message(msg.Data, err.message)
-        except Exception:
-            logging.exception("Exception while processing message from Peer: "
-                              "%r, From: %r, to To %r.", msg.Peer, msg.From, msg.To)
-            undeliverable_message(msg.Data, "Router failed to catch exception.")
+            undeliverable_message(msg.Data, result.message)
