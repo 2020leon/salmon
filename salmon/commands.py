@@ -2,6 +2,7 @@
 Documentation for this module can be found in :doc:`commandline`
 """
 from importlib import import_module
+import enum
 import glob
 import mailbox
 import os
@@ -53,19 +54,49 @@ class SalmonCommandError(click.ClickException):
         click.echo(self.format_message(), err=True, file=file)
 
 
+
+class Option(enum.Enum):
+    class Generator:
+        def __init__(self, *param_decls: str, **kwargs):
+            self.param_decls = param_decls
+            self.kwargs = kwargs
+
+        def __call__(self, **attrs):
+            return click.option(*self.param_decls, **{**self.kwargs, **attrs})
+
+    BOOT = Generator("--boot", metavar="MODULE", default="config.boot", help="module with server definition")
+    CHDIR = Generator("--chdir", metavar="PATH", default=".", help="change to this directory when daemonising")
+    CHROOT = Generator("--chroot", metavar="PATH", help="path to chroot")
+    DAEMON = Generator("--daemon/--no-daemon", default=True, help="start server as daemon (default)")
+    DEBUG = Generator("--debug", default=False, is_flag=True, help="debug mode")
+    FORCE = Generator("-f", "--force", is_flag=True)
+    GID = Generator("--gid", metavar="GID", type=int, help="run with this group id")
+    HOST = Generator("--host", metavar="ADDRESS", default="127.0.0.1")
+    LMTP = Generator("--lmtp", default=False)
+    PID = Generator("--pid", metavar="PATH", default=DEFAULT_PID_FILE, help="path to pid file")
+    PORT = Generator("--port", metavar="PORT", default=8825, type=int)
+    UMASK = Generator("--umask", metavar="MASK", type=int, help="set umask on server")
+    UID = Generator("--uid", metavar="UID", type=int, help="run with this user id")
+
+    OTHER = click.option
+
+    def __call__(self, *param_decls: str, **attrs):
+        return self.value(*param_decls, **attrs)
+
+
 def daemon_start(command, additional_options=[], *args, **kwargs):
     """Wrap a command function with common daemon start parameters"""
     def inner(fn):
         options = additional_options + [
-            click.option("--chroot", metavar="PATH", help="path to chroot"),
-            click.option("--chdir", metavar="PATH", default=".", help="change to this directory when daemonising"),
-            click.option("--umask", metavar="MASK", type=int, help="set umask on server"),
-            click.option("--pid", metavar="PATH", default=DEFAULT_PID_FILE, help="path to pid file"),
-            click.option("-f", "--force", default=False, is_flag=True, help="force server to run, ignoring pid file"),
-            click.option("--debug", default=False, is_flag=True, help="debug mode"),
-            click.option("--uid", metavar="UID", type=int, help="run with this user id"),
-            click.option("--gid", metavar="GID", type=int, help="run with this group id"),
-            click.option("--daemon/--no-daemon", default=True, help="start server as daemon (default)"),
+            Option.CHROOT(),
+            Option.CHDIR(),
+            Option.UMASK(),
+            Option.PID(),
+            Option.FORCE(default=False, help="force server to run, ignoring pid file"),
+            Option.DEBUG(),
+            Option.UID(),
+            Option.GID(),
+            Option.DAEMON(),
         ]
 
         for option in reversed(options):
@@ -85,8 +116,8 @@ def main():
 
 
 @daemon_start(main.command, additional_options=[
-    click.option("--port", metavar="PORT", default=8825, type=int, help="port to listen on"),
-    click.option("--host", metavar="ADDRESS", default="127.0.0.1", help="address to listen on"),
+    Option.PORT(help="port to listen on"),
+    Option.HOST(help="address to listen on"),
 ], short_help="starts log server")
 def log(port, host, pid, chdir, chroot, uid, gid, umask, force, debug, daemon):
     """
@@ -99,18 +130,18 @@ def log(port, host, pid, chdir, chroot, uid, gid, umask, force, debug, daemon):
 
 
 @main.command(short_help="send a new email")
-@click.option("--port", metavar="PORT", default=8825, type=int, help="Port to connect to")
-@click.option("--host", metavar="ADDRESS", default="127.0.0.1", help="Host to connect to")
-@click.option("--username", help="SMTP username")
-@click.option("--password", help="SMTP password")
-@click.option("--sender", metavar="EMAIL")
-@click.option("--to", metavar="EMAIL")
-@click.option("--subject")
-@click.option("--body")
-@click.option("--attach")
-@click.option("--lmtp", default=False)
-@click.option("--ssl", default=False)
-@click.option("--starttls", default=False)
+@Option.PORT(help="Port to connect to")
+@Option.HOST(help="Host to connect to")
+@Option.LMTP()
+@Option.OTHER("--ssl", default=False)
+@Option.OTHER("--starttls", default=False)
+@Option.OTHER("--username", help="SMTP username")
+@Option.OTHER("--password", help="SMTP password")
+@Option.OTHER("--sender", metavar="EMAIL")
+@Option.OTHER("--to", metavar="EMAIL")
+@Option.OTHER("--subject")
+@Option.OTHER("--body")
+@Option.OTHER("--attach")
 def send(port, host, username, password, ssl, starttls, lmtp, sender, to,
          subject, body, attach):
     """
@@ -127,10 +158,10 @@ def send(port, host, username, password, ssl, starttls, lmtp, sender, to,
 
 
 @main.command(short_help="send an email from stdin")
-@click.option("--port", metavar="PORT", default=8825, type=int, help="Port to connect to")
-@click.option("--host", metavar="ADDRESS", default="127.0.0.1", help="Address to connect to")
-@click.option("--lmtp", default=False, is_flag=True, help="Use LMTP rather than SMTP")
-@click.option("--debug", default=False, is_flag=True, help="Debug mode")
+@Option.PORT(help="Port to connect to")
+@Option.HOST(help="Host to connect to")
+@Option.LMTP(is_flag=True, help="Use LMTP rather than SMTP")
+@Option.DEBUG(help="Debug mode")
 @click.argument("recipients", nargs=-1, required=True)
 def sendmail(port, host, recipients, debug, lmtp):
     """
@@ -145,7 +176,7 @@ def sendmail(port, host, recipients, debug, lmtp):
 
 
 @daemon_start(main.command, additional_options=[
-    click.option("--boot", metavar="MODULE", default="config.boot", help="module with server definition"),
+    Option.BOOT(),
 ], short_help="starts a server")
 def start(pid, force, chdir, boot, chroot, uid, gid, umask, debug, daemon):
     """
@@ -156,9 +187,9 @@ def start(pid, force, chdir, boot, chroot, uid, gid, umask, debug, daemon):
 
 
 @main.command(short_help="stops a server")
-@click.option("--pid", metavar="PATH", default=DEFAULT_PID_FILE, help="path to pid file")
-@click.option("-f", "--force", default=False, is_flag=True, help="force stop server")
-@click.option("--all", "all_pids", help="stops all servers with .pid files in the specified directory")
+@Option.PID()
+@Option.FORCE(default=False, help="force stop server")
+@Option.OTHER("--all", "all_pids", help="stops all servers with .pid files in the specified directory")
 def stop(pid, force, all_pids):
     """
     Stops a running salmon server
@@ -192,7 +223,7 @@ def stop(pid, force, all_pids):
 
 
 @main.command(short_help="displays status of server")
-@click.option("--pid", metavar="PATH", default=DEFAULT_PID_FILE, help="path to pid file")
+@Option.PID()
 def status(pid):
     """
     Prints out status information about salmon useful for finding out if it's
@@ -207,12 +238,12 @@ def status(pid):
 
 
 @main.command(short_help="manipulate a Queue")
-@click.option("--pop", default=False, is_flag=True, help="pop a message from queue")
-@click.option("--get", metavar="KEY", help="get key from queue")
-@click.option("--remove", metavar="KEY", help="remove chosen key from queue")
-@click.option("--count", default=False, is_flag=True, help="count messages in queue")
-@click.option("--clear", default=False, is_flag=True, help="clear queue")
-@click.option("--keys", default=False, is_flag=True, help="print queue keys")
+@Option.OTHER("--pop", default=False, is_flag=True, help="pop a message from queue")
+@Option.OTHER("--get", metavar="KEY", help="get key from queue")
+@Option.OTHER("--remove", metavar="KEY", help="remove chosen key from queue")
+@Option.OTHER("--count", default=False, is_flag=True, help="count messages in queue")
+@Option.OTHER("--clear", default=False, is_flag=True, help="clear queue")
+@Option.OTHER("--keys", default=False, is_flag=True, help="print queue keys")
 @click.argument("name", metavar="PATH", default="./run/queue")
 def queue(name, pop, get, keys, remove, count, clear):
     """
@@ -256,8 +287,8 @@ def _import_router_modules(modules, path):
 
 
 @main.command(short_help="display routes")
-@click.option("--path", metavar="PATH", default=os.getcwd, help="search path for modules")
-@click.option("--test", metavar="EMAIL", help="address to test against routing configuration")
+@Option.OTHER("--path", metavar="PATH", default=os.getcwd, help="search path for modules")
+@Option.OTHER("--test", metavar="EMAIL", help="address to test against routing configuration")
 @click.argument("modules", metavar="MODULE", nargs=-1, required=True)
 def routes(modules, test, path):
     """
@@ -299,7 +330,7 @@ def routes(modules, test, path):
 
 @main.command(short_help="generate a new project")
 @click.argument("project", metavar="PATH")
-@click.option("-f", "--force", is_flag=True, help="overwrite existing directories")
+@Option.FORCE(help="overwrite existing directories")
 def gen(project, force):
     """
     Generates various useful things for you to get you started.
@@ -353,10 +384,10 @@ def cleanse(inbox, outbox):
 
 @main.command(short_help="blast emails at a server")
 @click.argument("inbox", metavar="MAILBOX")
-@click.option("--port", metavar="PORT", default=8823, type=int, help="port to connect to")
-@click.option("--host", metavar="ADDRESS", default="127.0.0.1", help="address to connect to")
-@click.option("--lmtp", default=False, is_flag=True)
-@click.option("--debug", default=False, is_flag=True, help="debug mode")
+@Option.PORT(default=8823, help="port to connect to")
+@Option.HOST(help="address to connect to")
+@Option.LMTP(is_flag=True)
+@Option.DEBUG()
 def blast(inbox, host, port, lmtp, debug):
     """
     Given a Maildir, this command will go through each email
