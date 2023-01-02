@@ -6,7 +6,7 @@ first though!
 
 After that these functions should just work.
 """
-from salmon import mail
+import salmon.mail as mail
 
 LOADER = None
 

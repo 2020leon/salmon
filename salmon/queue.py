@@ -12,7 +12,7 @@ import os
 import socket
 import time
 
-from salmon import mail
+import salmon.mail as mail
 
 # we calculate this once, since the hostname shouldn't change for every
 # email we put in a queue

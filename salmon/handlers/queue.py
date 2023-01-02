@@ -7,11 +7,12 @@ the salmon queue command.
 
 import logging
 
-from salmon import handlers, queue
+from salmon.queue import Queue
 from salmon.routing import nolocking, route_like, stateless
+import salmon.handlers.log as log
 
 
-@route_like(handlers.log.START)
+@route_like(log.START)
 @stateless
 @nolocking
 def START(message, to=None, host=None):
@@ -20,5 +21,5 @@ def START(message, to=None, host=None):
     Has @nolocking, but that's alright since it's just writing to a Maildir.
     """
     logging.debug("MESSAGE to %s@%s added to queue.", to, host)
-    q = queue.Queue('run/queue')
+    q = Queue('run/queue')
     q.push(message)

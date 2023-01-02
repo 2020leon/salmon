@@ -16,8 +16,8 @@ templates, and possibly write your own storage.
 from email.utils import parseaddr
 import uuid
 
-from salmon import queue, view
-
+import salmon.queue as queue
+import salmon.view as view
 
 class ConfirmationStorage:
     """

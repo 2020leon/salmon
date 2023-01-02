@@ -14,7 +14,8 @@ import mimetypes
 import os
 import warnings
 
-from salmon import bounce, encoding
+import salmon.bounce as bounce
+import salmon.encoding as encoding
 
 # You can change this to 'Delivered-To' on servers that support it like Postfix
 ROUTABLE_TO_HEADER = 'to'

@@ -13,7 +13,8 @@ import sys
 from lockfile import pidlockfile
 import daemon
 
-from salmon import routing, server
+import salmon.routing as routing
+import salmon.server as server
 
 settings = None
 
