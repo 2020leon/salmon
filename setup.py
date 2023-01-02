@@ -49,7 +49,7 @@ config = {
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         ],
-    'python_requires': '>=3.5',
+    'python_requires': '>=3.7',
     'entry_points': {
         'console_scripts':
             ['salmon = salmon.commands:main'],
