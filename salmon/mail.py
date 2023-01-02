@@ -145,7 +145,7 @@ class MailRequest:
     def is_bounce(self, threshold=0.3):
         """
         Determines whether the message is a bounce message based on
-        salmon.bounce.BounceAnalzyer given threshold.  0.3 is a good
+        salmon.bounce.BounceAnalyzer given threshold.  0.3 is a good
         conservative base.
         """
         if not self.bounce:
