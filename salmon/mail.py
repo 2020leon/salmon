@@ -280,7 +280,8 @@ class MailResponse:
             self.base.parts.append(part)
         elif filename:
             if not data:
-                data = open(filename).read()
+                with open(filename) as f:
+                    data = f.read()
 
             self.base.attach_file(filename, data, content_type, disposition or 'attachment')
         else:
